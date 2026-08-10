@@ -22,6 +22,12 @@ const { checkAuth, registerAuthIPC } = require("./auth");
 
 let mainWindow   = null;
 let cursorHidden = false;
+let isWindowVisible = true;  // track visibility for shortcut management
+let isToggling      = false; // debounce rapid keypresses
+
+// ── Window position/size state ────────────────────────────────────────────
+const MOVE_STEP = 60; // px per keypress — matches article's 60px recommendation
+let winState = { x: 0, y: 0, width: 1180, height: 760 };
 
 // ── Bookmarks ─────────────────────────────────────────────────────────────
 const BOOKMARKS = [
@@ -202,19 +208,28 @@ async function runOcr() {
 // ── Window ────────────────────────────────────────────────────────────────
 function createWindow() {
   const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const startX = Math.floor((width  - 1180) / 2);
+  const startY = Math.floor((height -  760) / 2);
+  winState = { x: startX, y: startY, width: 1180, height: 760 };
+
   mainWindow = new BrowserWindow({
     width: 1180, height: 760,
     minWidth: 800, minHeight: 480,
-    x: Math.floor((width  - 1180) / 2),
-    y: Math.floor((height -  760) / 2),
-    frame:       false,
-    transparent: false,
-    alwaysOnTop: true,
-    skipTaskbar: true,
-    hasShadow:   false,
-    backgroundColor: "#0e0e0e",
+    x: startX,
+    y: startY,
+    frame:                  false,
+    transparent:            false,
+    alwaysOnTop:            true,
+    skipTaskbar:            true,
+    hasShadow:              false,
+    fullscreenable:         false,          // prevent accidental fullscreen
+    enableLargerThanScreen: true,           // allow sliding off-screen edges
+    paintWhenInitiallyHidden: true,         // no flash on first show
+    backgroundColor:        "#0e0e0e",
+    // Windows: disable thick frame (removes resize-handle artifacts)
+    ...(process.platform === "win32"  ? { thickFrame: false } : {}),
     // macOS: panel type floats above other apps without stealing focus
-    ...(process.platform === "darwin" ? { type: "panel" } : {}),
+    ...(process.platform === "darwin" ? { type: "panel"      } : {}),
     show: false,
     webPreferences: {
       nodeIntegration:  false,
@@ -231,7 +246,9 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "../index.html"));
   mainWindow.once("ready-to-show", () => {
-    mainWindow.showInactive();   // show without stealing focus from interview platform
+    // setOpacity(0) then showInactive() prevents visual flash on first paint
+    mainWindow.setOpacity(0);
+    mainWindow.showInactive();   // show WITHOUT stealing focus from interview platform
     // Apply content protection AFTER window is visible and rendered
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -240,8 +257,25 @@ function createWindow() {
         mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
         // Stay visible across all macOS virtual desktops and full-screen spaces
         mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        // Restore opacity after protection is applied
+        mainWindow.setOpacity(currentOpacity);
       }
     }, 500);
+  });
+
+  // Re-apply Windows-specific config on focus — Windows can reset these during focus events
+  mainWindow.on("focus", () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    if (process.platform === "win32") {
+      mainWindow.setMenuBarVisibility(false);
+      mainWindow.setAutoHideMenuBar(true);
+      // Re-apply content protection — Windows can drop it on focus transitions
+      mainWindow.setContentProtection(true);
+      mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
+    }
+    // Restore bounds — some API calls subtly shift position on focus
+    const b = mainWindow.getBounds();
+    mainWindow.setBounds(b);
   });
   mainWindow.webContents.on("did-finish-load", () => {
     mainWindow.webContents.send("init", { bookmarks: BOOKMARKS, partition: PARTITION });
@@ -253,16 +287,40 @@ function createWindow() {
 
 // ── Toggle show / hide ────────────────────────────────────────────────────
 function toggleWindow() {
-  if (!mainWindow) return;
-  if (mainWindow.isVisible()) {
+  if (!mainWindow || isToggling) return;
+  isToggling = true;
+  setTimeout(() => { isToggling = false; }, 300); // debounce — article recommends 300ms
+
+  if (isWindowVisible) {
     // Click-through while hidden — mouse events pass to app below
     mainWindow.setIgnoreMouseEvents(true, { forward: true });
     mainWindow.hide();
+    isWindowVisible = false;
+    // Unregister all shortcuts except toggle — frees up keys for interview platform
+    registerShortcutsHidden();
   } else {
-    // showInactive: make visible WITHOUT stealing focus from interview platform
+    // setOpacity(0) then showInactive() — no focus steal, no visual flash
+    mainWindow.setOpacity(0);
     mainWindow.setIgnoreMouseEvents(false);
     mainWindow.showInactive();
+    mainWindow.setOpacity(currentOpacity);
+    isWindowVisible = true;
+    registerShortcuts(); // restore all shortcuts
   }
+}
+
+// ── Window movement (keyboard-driven, no drag = no focus steal) ───────────
+function moveWindow(dx, dy) {
+  if (!mainWindow) return;
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize;
+  const b = mainWindow.getBounds();
+  const maxOffX = b.width;   // allow full width off either edge
+  const maxOffY = Math.floor(b.height * 2 / 3); // allow 2/3 off top/bottom
+  const newX = Math.max(-maxOffX, Math.min(sw,  b.x + dx));
+  const newY = Math.max(-maxOffY, Math.min(sh - b.height + maxOffY, b.y + dy));
+  winState.x = newX;
+  winState.y = newY;
+  mainWindow.setPosition(Math.round(newX), Math.round(newY));
 }
 
 // ── Opacity helpers ───────────────────────────────────────────────────────
@@ -274,8 +332,10 @@ function nudgeOpacity(delta) {
     mainWindow.webContents.send("opacity-changed", currentOpacity);
 }
 
-// ── Global shortcuts ──────────────────────────────────────────────────────
+// ── Global shortcuts — full set (window visible) ──────────────────────────
 function registerShortcuts() {
+  globalShortcut.unregisterAll();
+
   // Alt+M  — show / hide KX
   globalShortcut.register("Alt+M", () => toggleWindow());
 
@@ -290,7 +350,6 @@ function registerShortcuts() {
   });
 
   // Alt+,  and  Ctrl+,  — insert one char
-  // Try multiple key name variants for the comma key across keyboard layouts
   const combosTried = ["Alt+,", "Ctrl+,"];
   for (const combo of combosTried) {
     try { globalShortcut.register(combo, () => insertOneChar()); } catch {}
@@ -299,6 +358,22 @@ function registerShortcuts() {
   // Alt+Left / Alt+Right  — opacity
   globalShortcut.register("Alt+Left",  () => nudgeOpacity(-0.1));
   globalShortcut.register("Alt+Right", () => nudgeOpacity(+0.1));
+
+  // Ctrl+Arrow — move window (keyboard-driven, no focus steal)
+  globalShortcut.register("Ctrl+Up",    () => moveWindow(0, -MOVE_STEP));
+  globalShortcut.register("Ctrl+Down",  () => moveWindow(0,  MOVE_STEP));
+  globalShortcut.register("Ctrl+Left",  () => moveWindow(-MOVE_STEP, 0));
+  globalShortcut.register("Ctrl+Right", () => moveWindow( MOVE_STEP, 0));
+}
+
+// ── Global shortcuts — hidden state (only toggle key active) ─────────────
+// Frees up all other combos for the interview platform while window is hidden
+function registerShortcutsHidden() {
+  globalShortcut.unregisterAll();
+  // 500ms delay prevents race condition when rapidly re-registering
+  setTimeout(() => {
+    globalShortcut.register("Alt+M", () => toggleWindow());
+  }, 500);
 }
 
 // ── IPC handlers ──────────────────────────────────────────────────────────
