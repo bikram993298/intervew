@@ -6,7 +6,7 @@ const https  = require("https");
 const http   = require("http");
 
 // ── CONFIG ────────────────────────────────────────────────────────────────
-const SERVER_URL = process.env.KX_SERVER || "http://localhost:3000";
+const SERVER_URL = process.env.KX_SERVER || "https://kx-license-server.onrender.com";
 
 // ── Local session storage (encrypted) ────────────────────────────────────
 function getAuthFile() {
