@@ -211,7 +211,10 @@ function createWindow() {
     transparent: false,
     alwaysOnTop: true,
     skipTaskbar: true,
+    hasShadow:   false,
     backgroundColor: "#0e0e0e",
+    // macOS: panel type floats above other apps without stealing focus
+    ...(process.platform === "darwin" ? { type: "panel" } : {}),
     show: false,
     webPreferences: {
       nodeIntegration:  false,
@@ -228,12 +231,15 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, "../index.html"));
   mainWindow.once("ready-to-show", () => {
-    mainWindow.show();
-    mainWindow.focus();
+    mainWindow.showInactive();   // show without stealing focus from interview platform
     // Apply content protection AFTER window is visible and rendered
     setTimeout(() => {
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setContentProtection(true);
+        // Highest always-on-top level — stays above full-screen apps
+        mainWindow.setAlwaysOnTop(true, "screen-saver", 1);
+        // Stay visible across all macOS virtual desktops and full-screen spaces
+        mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
       }
     }, 500);
   });
@@ -248,8 +254,15 @@ function createWindow() {
 // ── Toggle show / hide ────────────────────────────────────────────────────
 function toggleWindow() {
   if (!mainWindow) return;
-  if (mainWindow.isVisible()) mainWindow.hide();
-  else { mainWindow.show(); mainWindow.focus(); }
+  if (mainWindow.isVisible()) {
+    // Click-through while hidden — mouse events pass to app below
+    mainWindow.setIgnoreMouseEvents(true, { forward: true });
+    mainWindow.hide();
+  } else {
+    // showInactive: make visible WITHOUT stealing focus from interview platform
+    mainWindow.setIgnoreMouseEvents(false);
+    mainWindow.showInactive();
+  }
 }
 
 // ── Opacity helpers ───────────────────────────────────────────────────────
