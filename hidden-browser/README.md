@@ -1,13 +1,14 @@
 # KX — Hidden Browser
 
-A frameless, always-on-top browser that is **invisible to screen capture and screen sharing software**. Designed for discreet browsing, live typing assistance, OCR, and clipboard operations during calls or presentations.
+A frameless, always-on-top browser **invisible to all screen capture and screen sharing software** (Zoom, Teams, Google Meet, OBS, Discord, etc.). Built for discreet browsing, live typing assistance, OCR, and clipboard operations during interviews or calls.
 
 ---
 
 ## Table of Contents
 
+- [How It Works](#how-it-works)
 - [Getting Started](#getting-started)
-- [First Launch & License](#first-launch--license)
+- [First Launch & Login](#first-launch--login)
 - [The Interface](#the-interface)
 - [Global Shortcuts](#global-shortcuts)
 - [Sidebar Features](#sidebar-features)
@@ -22,6 +23,23 @@ A frameless, always-on-top browser that is **invisible to screen capture and scr
 - [Tabs & Bookmarks](#tabs--bookmarks)
 - [Building a Distributable](#building-a-distributable)
 - [Development](#development)
+- [License Server](#license-server)
+
+---
+
+## How It Works
+
+KX uses OS-level window protection to be completely invisible to screen sharing:
+
+- **Windows** — `SetWindowDisplayAffinity(WDA_EXCLUDEFROMCAPTURE)` via Electron's `setContentProtection(true)`. Enforced at the DWM compositor level — no screen sharing app on Windows can bypass it.
+- **macOS** — `NSWindowSharingNone` excludes the window from CGWindowListCreateImage and ScreenCaptureKit. Zoom on macOS requires "Advanced Capture with window filtering" enabled in Zoom Settings → Screen Share.
+
+Additional stealth measures:
+- `thickFrame: false` — no resize-handle artifacts visible on window edges
+- `skipTaskbar: true` — no app icon in the Windows taskbar
+- `showInactive()` — window appears without triggering a `blur` event in the interview platform's browser
+- Shortcuts unregister when KX is hidden — no accidental key conflicts with the interview app
+- App presents as **Runtime Broker** (Microsoft system process name) in Task Manager
 
 ---
 
@@ -35,29 +53,34 @@ A frameless, always-on-top browser that is **invisible to screen capture and scr
 ### Install & Run
 
 ```bash
-# from the repo root
+cd hidden-browser
 npm install
 npm start
 ```
 
-For dev mode (with DevTools):
+For dev mode (DevTools enabled, content protection OFF so you can see the window):
 ```bash
 npm run dev
 ```
 
 ---
 
-## First Launch & License
+## First Launch & Login
 
-On every launch KX checks your license key against the server. You will see the **Activate** screen if:
+On every launch KX shows a **login screen**. Enter the **username and password** provided by the server admin.
 
-- No key has been saved yet
-- Your saved key has been revoked or expired
-- The server was unreachable for more than 24 hours (grace period expires)
+- Credentials are validated against your self-hosted auth server (MongoDB-backed).
+- On success, a session token is saved locally (AES-256 encrypted). You stay logged in for 30 days.
+- If the server is unreachable, the app shows an error — no offline grace period, live validation required.
 
-**Enter your license key** in the format `KX-XXXX-XXXX-XXXX` and click **ACTIVATE**. Once validated the main browser opens automatically and your key is saved locally (encrypted).
+To create user accounts on your server:
+```bash
+curl -X POST https://your-server.onrender.com/admin/create-user \
+  -H "Content-Type: application/json" \
+  -d '{"secret":"your-admin-secret","username":"john","password":"pass123"}'
+```
 
-> If the license server is unreachable KX grants a **24-hour offline grace period** using your last successful validation.
+See [`server/DEPLOY.md`](server/DEPLOY.md) for full admin API reference.
 
 ---
 
@@ -65,53 +88,68 @@ On every launch KX checks your license key against the server. You will see the 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  KX  [ ← → ↺ ]  [ URL bar          ] [GO]  [✕] │  ← Toolbar (drag to move)
+│  KX  [ ← → ↺ ]  [ URL bar          ] [GO]  [✕] │  ← Toolbar
 ├─────────────────────────────────────────────────┤
-│  [Google] [ChatGPT] [Gemini] [Telegram]  [ + ]  │  ← Tab bar + bookmarks
+│  [Google] [ChatGPT] [Gemini] [Telegram]  [ + ]  │  ← Bookmarks + Tabs
 ├──────────────────────────────────────┬──────────┤
-│                                      │ TYPER    │
 │                                      │ INSERT   │
-│         Browser / Webview            │ START    │
-│                                      │ PAUSE    │
+│                                      │ START    │
+│         Browser / Webview            │ PAUSE    │
 │                                      │ RESET    │
 │                                      │ LOAD     │
 │                                      │ ──────── │
-│                                      │ KEYBOARD │
+│                                      │ OUTSIDE  │  ← Keyboard mode
 │                                      │ OPACITY  │
 │                                      │ CAPTURE  │
+│                                      │ SSCROP   │
+│                                      │ OCR      │
+│                                      │ PASTE    │
 │                                      │ CURSOR   │
 │                                      │ SHOW/HIDE│
 └──────────────────────────────────────┴──────────┘
 ```
 
-- **Drag zone** — the "KX" label in the top-left is the drag handle to reposition the window.
-- **Close button (✕)** — fully quits the app.
-- Everything is hidden from OBS, Teams, Zoom, and any other screen-capture software.
-
 ---
 
 ## Global Shortcuts
 
-These work even when KX is hidden or another window is in focus.
+These work even when KX is hidden or another window has focus.
+
+### Window Control
 
 | Shortcut | Action |
 |---|---|
-| `Alt + M` | Toggle KX **show / hide** |
-| `Alt + B` | Take a **screenshot** of the full screen (saved + copied to clipboard) |
-| `Alt + X` | Run **OCR** on the full screen |
-| `Alt + Left` | Decrease window **opacity** by 10% |
-| `Alt + Right` | Increase window **opacity** by 10% |
-| `Alt + ,` | **Insert one character** from the loaded Typer text |
+| `Alt + M` | **Toggle KX** show / hide |
+| `Ctrl + ↑ ↓ ← →` | **Move window** in that direction (60px per press) |
+| `Alt + Left` | Decrease **opacity** by 10% |
+| `Alt + Right` | Increase **opacity** by 10% |
+
+> When KX is hidden, only `Alt+M` stays registered. All other shortcuts are unregistered so they don't conflict with the interview platform. They restore when you show KX again.
+
+> The window can slide partially off-screen — useful to tuck it to one edge while keeping a sliver visible.
+
+### Capture
+
+| Shortcut | Action |
+|---|---|
+| `Alt + B` | Full-screen **screenshot** (saved + copied to clipboard) |
+| `Alt + X` | Full-screen **OCR** |
+
+### Typer
+
+| Shortcut | Action |
+|---|---|
+| `Alt + ,` | **Insert one character** from loaded Typer text |
 | `Ctrl + ,` | Insert one character (alternate binding) |
 
-### In-browser shortcuts (when KX is focused)
+### In-browser (when KX window is focused)
 
 | Shortcut | Action |
 |---|---|
-| `Ctrl + L` | Focus the URL bar |
-| `Ctrl + R` | Reload current tab |
+| `Ctrl + L` | Focus URL bar |
+| `Ctrl + R` | Reload tab |
 | `Ctrl + T` | New tab |
-| `Ctrl + W` | Close current tab |
+| `Ctrl + W` | Close tab |
 | `Alt + ←` | Browser back |
 | `Alt + →` | Browser forward |
 | `Escape` | Close OCR / Queue panel |
@@ -122,38 +160,37 @@ These work even when KX is hidden or another window is in focus.
 
 ### Typer
 
-Automatically types pre-loaded text into any application — works while KX stays visible on screen.
+Types pre-loaded text into any application character by character — while KX stays fully visible on screen.
 
 **Workflow:**
-
-1. Copy the text you want to type into your clipboard.
-2. Click **LOAD** — KX reads your clipboard and loads the text (shows character count).
-3. Set the **SPEED** slider (left = slow, right = fast).
-4. Click inside the target application's text field.
+1. Copy the text you want to type.
+2. Click **LOAD** — reads clipboard, shows character count.
+3. Set the **SPEED** slider (left = slow / careful, right = fast).
+4. Click inside the target text field in the other app.
 5. Click **START** — KX begins typing automatically.
-6. Click **PAUSE** to stop mid-way; click **START** again to resume.
+6. Click **PAUSE** to stop; **START** again to resume from where it stopped.
 7. Click **RESET** to clear everything (also clears clipboard).
 
-**INSERT** — types one character at a time on each click (or via `Alt+,`). Useful for stepping through text manually.
+**INSERT** — types exactly one character per click (or `Alt+,`). Use for manual step-through.
 
-> **Tip:** Use the **Task Queue** to preload multiple text snippets and fire them one at a time.
+> Tip: Preload multiple snippets in the **Task Queue** and fire them one at a time.
 
 ---
 
 ### Keyboard Mode
 
-Toggles between two typing modes. Click the **OUTSIDE / INSIDE** button in the sidebar.
+Click the **OUTSIDE / INSIDE** button to toggle.
 
 | Mode | Behaviour |
 |---|---|
-| **OUTSIDE** (default) | Keystrokes are sent to whatever application is currently focused behind KX via PowerShell `SendKeys`. Use this to type into Zoom chat, Google Docs, etc. |
-| **INSIDE** | Keystrokes are injected directly into the focused element inside KX's own browser webview. Use this to type into ChatGPT, Telegram web, etc. inside the browser. |
+| **OUTSIDE** (default) | Keystrokes sent to the app behind KX via PowerShell SendKeys. Use to type into Zoom chat, Google Docs, coding editors, etc. |
+| **INSIDE** | Keystrokes injected into the focused element inside KX's own webview. Use to type into ChatGPT, Telegram Web, etc. within the browser. |
 
 ---
 
 ### Opacity
 
-Use the **OPACITY** slider (10% – 100%) or `Alt + Left / Right` shortcuts to adjust how transparent KX appears to you. This does not affect screen-capture invisibility — KX is always hidden from capture regardless of opacity.
+Slider (10%–100%) or `Alt + Left / Right` to adjust how transparent KX looks to **you**. This has no effect on screen-capture invisibility — KX is always hidden from capture regardless of opacity level.
 
 ---
 
@@ -161,124 +198,124 @@ Use the **OPACITY** slider (10% – 100%) or `Alt + Left / Right` shortcuts to a
 
 | Button | Shortcut | What it does |
 |---|---|---|
-| **SCREENSHOT** | `Alt + B` | Captures the full screen, saves as PNG, and copies the image to clipboard |
-| **SSCROP** | — | Captures only the KX window area and saves/copies it |
-| **OCR** | `Alt + X` | Runs optical character recognition on the full screen and opens the OCR panel |
-| **PASTE** | — | Pastes clipboard content (image or text) into the active webview element |
+| **SCREENSHOT** | `Alt + B` | Captures full screen → saves as PNG → copies to clipboard |
+| **SSCROP** | — | Captures only the KX window area → saves → copies to clipboard |
+| **OCR** | `Alt + X` | OCR on full screen → opens OCR result panel |
+| **PASTE** | — | Pastes clipboard image or text into the focused webview element |
 
-All screenshots are saved to:
+Screenshots saved to:
 ```
 %APPDATA%\KX-Browser\screenshots\
 ```
-Click **Open Shots Dir** (via the IPC API) or navigate there manually to find saved files.
 
 ---
 
 ### Paste
 
-The **PASTE** button injects whatever is currently in your clipboard into the focused element inside the active browser tab.
+Injects clipboard content into the focused element in the active browser tab.
 
-- **Image in clipboard** → attempts to trigger a file-input upload (e.g. ChatGPT image upload) or fires a `paste` ClipboardEvent on the focused element.
-- **Text in clipboard** → inserts text at the cursor position in the focused input or contenteditable.
+- **Image** → triggers file-input upload or fires a `paste` ClipboardEvent (works with ChatGPT image upload, etc.)
+- **Text** → inserts at cursor in focused input or contenteditable
 
-> **Tip:** Click inside the chat input field in the webview *before* pressing PASTE for best results.
+> Click inside the target input in the webview *before* pressing PASTE.
 
 ---
 
 ### OCR
 
-1. Press **OCR** button or `Alt + X`.
-2. KX takes a screenshot, runs Tesseract OCR on it, and opens the **OCR Result** panel.
-3. Review the extracted text in the panel.
-4. Click **COPY ALL** to copy the text to clipboard.
-5. Click **+ QUEUE** to add the text to the Task Queue for later typing.
-6. Click **X** to close the panel.
+1. Click **OCR** or press `Alt + X`.
+2. KX screenshots the screen and runs Tesseract OCR on it.
+3. Review extracted text in the panel.
+4. **COPY ALL** — copies to clipboard.
+5. **+ QUEUE** — sends to Task Queue for later typing.
+6. **X** — closes the panel.
 
 ---
 
 ### Task Queue
 
-The Queue lets you line up multiple text snippets to type in sequence.
+Line up multiple text snippets to type in sequence.
 
-1. OCR a screen, then click **+ QUEUE** to add extracted text.
+1. After OCR, click **+ QUEUE** to add the result.
 2. Open the Queue panel to see all items.
-3. Click any item to **load it into the Typer** (ready to START).
-4. Click **×** next to an item to remove it.
-5. Click **CLEAR ALL** to empty the queue.
+3. Click any item → loads it into the Typer (ready to START).
+4. **×** to remove a single item.
+5. **CLEAR ALL** to empty the queue.
 
 ---
 
 ### Cursor Hide
 
-Click **HIDE CURSOR** to make the mouse cursor invisible inside the KX window. Click **SHOW CURSOR** to restore it. Useful when demoing the browser content without the cursor being a distraction.
+**HIDE CURSOR** makes the mouse cursor invisible inside KX. **SHOW CURSOR** restores it. Useful when demoing browser content on a second screen.
 
 ---
 
 ## Tabs & Bookmarks
 
-- Click **+** to open a new tab (starts at Google).
-- Click a tab label to switch to it.
-- Click **×** on a tab to close it (closing the last tab quits the app).
-- **Bookmarks** appear as quick-access buttons in the tab bar: Google, ChatGPT, Gemini, Telegram.
-- Clicking a bookmark navigates the current tab to that URL.
-- Links that open in a new window automatically open in a new KX tab.
+- **+** opens a new tab (starts at Google).
+- Click a tab label to switch; **×** to close.
+- Closing the last tab quits the app.
+- **Bookmarks** (Google, ChatGPT, Gemini, Telegram) are quick-nav buttons in the tab bar.
+- Links that open in a new window open in a new KX tab automatically.
 
 ---
 
 ## Building a Distributable
 
 ```bash
-# from repo root
+cd hidden-browser
 npm run build
 ```
 
-Output goes to `dist/RuntimeBroker-update.exe` — a self-contained NSIS installer that runs silently with no desktop shortcut or start menu entry.
+Output: `dist/RuntimeBroker-update.exe` — a silent NSIS installer, no desktop shortcut, no start menu entry.
 
-The built app is named **Runtime Broker** and presents as a Microsoft system process to avoid attracting attention in the taskbar or task manager.
+The built app appears as **Runtime Broker** (Microsoft system process name) in Task Manager and the taskbar.
 
 ---
 
 ## Development
 
 ```bash
-npm run dev     # starts with --dev flag (DevTools enabled)
+cd hidden-browser
+npm run dev
 ```
 
-- In dev mode the window is **not** content-protected, so you can see it normally in screen capture while developing.
-- DevTools open automatically alongside the main window.
-- App data is stored in `%APPDATA%\KX-Browser\`.
+- Content protection is **disabled** in dev mode so you can see the window in screen capture while developing.
+- DevTools open automatically.
+- App data stored in `%APPDATA%\KX-Browser\`.
 
 ### Project Structure
 
 ```
 hidden-browser/
 ├── src/
-│   ├── main.js          # Electron main process, IPC handlers, shortcuts
+│   ├── main.js          # Electron main process — window, IPC, shortcuts
 │   ├── preload.js       # Context bridge — exposes api.* to renderer
-│   ├── renderer.js      # All UI logic (tabs, typer, OCR, paste, queue)
-│   ├── auth.js          # License check & login window
+│   ├── renderer.js      # UI logic — tabs, typer, OCR, paste, queue
+│   ├── ptm.js           # Page Transition Manager — smooth navigation
+│   ├── auth.js          # Login window + server auth
 │   ├── login-preload.js # Context bridge for login window
 │   └── typer.ps1        # PowerShell helper for external keystroke injection
 ├── index.html           # Main window HTML
-├── login.html           # License activation window HTML
+├── login.html           # Login window HTML
 ├── styles.css           # All styles
-└── server/              # License server (deploy to Render)
+└── server/              # Auth server (deploy to Render)
     ├── server.js
-    └── DEPLOY.md
+    ├── DEPLOY.md
+    └── README.md
 ```
 
 ---
 
-## License Server (self-hosted)
+## License Server
 
-The license validation server lives in `hidden-browser/server/`. Deploy it to [Render](https://render.com) or any Node.js host.
+The auth server lives in `hidden-browser/server/`. It's a Node.js + Express + MongoDB app.
 
-See [`server/DEPLOY.md`](server/DEPLOY.md) and [`server/README.md`](server/README.md) for full setup instructions.
+Deploy to [Render](https://render.com) (free tier works) — see [`server/DEPLOY.md`](server/DEPLOY.md).
 
-To point KX at your own server, set the environment variable before building:
+Your deployed server URL: `https://kx-license-server.onrender.com`
 
-```bash
-KX_SERVER=https://your-server.onrender.com npm run build
+To point KX at a different server, edit `SERVER_URL` in `src/auth.js`:
+```js
+const SERVER_URL = process.env.KX_SERVER || "https://kx-license-server.onrender.com";
 ```
-
-Or edit the `SERVER_URL` constant in `hidden-browser/src/auth.js`.
