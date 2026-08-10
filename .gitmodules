@@ -1,0 +1,3 @@
+[submodule "hidden-browser/server"]
+	path = hidden-browser/server
+	url = https://github.com/bikram993298/kx-license-server.git

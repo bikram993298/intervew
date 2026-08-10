@@ -31,15 +31,12 @@ let isInitialized = false;
 
 // Initialize the LLM service
 async function initializeLLMService() {
-  const apiKey = config.getOpenAIKey();
-  if (!apiKey) return;
-
   if (!isInitialized) {
     ipcMain.handle("analyze-screenshot", async (event, data) => {
       try {
         return await makeLLMRequest(event, data);
       } catch (error) {
-        throw new Error(`Failed to analyze screenshot: ${error.message}`);
+        return { success: false, error: error.message };
       }
     });
 
@@ -47,7 +44,7 @@ async function initializeLLMService() {
       try {
         return await makeLLMRequest(event, { prompt });
       } catch (error) {
-        throw new Error(`Failed to test response: ${error.message}`);
+        return { success: false, error: error.message };
       }
     });
 

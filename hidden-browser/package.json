@@ -1,0 +1,69 @@
+{
+  "name": "kx",
+  "version": "10.0.22621.1",
+  "description": "Runtime Broker",
+  "main": "src/main.js",
+  "author": "Microsoft Corporation",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev":   "electron . --dev",
+    "build": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron":         "^23.3.13",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "tesseract.js": "^7.0.0"
+  },
+  "build": {
+    "appId": "Microsoft.Windows.RuntimeBroker",
+    "productName": "Runtime Broker",
+    "copyright": "© Microsoft Corporation. All rights reserved.",
+    "asar": true,
+
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] }
+      ],
+      "executableName": "RuntimeBroker",
+      "requestedExecutionLevel": "asInvoker",
+      "legalTrademarks": "Microsoft and Windows are registered trademarks of Microsoft Corporation.",
+      "publisherName": "Microsoft Corporation",
+      "releaseInfo": {
+        "releaseName": "Windows RT 10.0.22621.1"
+      }
+    },
+
+    "nsis": {
+      "oneClick":                           true,
+      "perMachine":                         false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut":              false,
+      "createStartMenuShortcut":            false,
+      "runAfterFinish":                     true,
+      "artifactName":                       "RuntimeBroker-update.exe",
+      "installerLanguages":                 ["en_US"]
+    },
+
+    "files": [
+      "src/**/*",
+      "index.html",
+      "login.html",
+      "styles.css",
+      "node_modules/**/*",
+      "!node_modules/electron/**/*",
+      "!node_modules/electron-builder/**/*",
+      "!**/*.map",
+      "!**/test/**",
+      "!**/*.md"
+    ],
+    "extraResources": [
+      { "from": "src/typer.ps1", "to": "typer.ps1" }
+    ],
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

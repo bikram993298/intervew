@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>KX — Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0e0e0e;
+      color: #d8d8d8;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      -webkit-app-region: drag;
+    }
+    .card {
+      -webkit-app-region: no-drag;
+      width: 340px;
+      padding: 32px 28px;
+      background: #161616;
+      border: 1px solid #272727;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .logo { text-align: center; }
+    .logo-text {
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: #3a6fd8;
+    }
+    .logo-sub {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: #444;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #555;
+      text-transform: uppercase;
+    }
+    input[type="text"],
+    input[type="password"] {
+      width: 100%;
+      padding: 10px 14px;
+      background: #0c0c0c;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      color: #d8d8d8;
+      font-size: 13px;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input[type="text"]:focus,
+    input[type="password"]:focus { border-color: #3a6fd8; }
+    input::placeholder { color: #333; }
+    .btn-login {
+      width: 100%;
+      padding: 11px;
+      background: #3a6fd8;
+      border: none;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background .15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .btn-login:hover    { background: #2a5fc0; }
+    .btn-login:disabled { background: #1a3060; cursor: default; opacity: .6; }
+    .msg {
+      font-size: 11px;
+      text-align: center;
+      min-height: 16px;
+      font-weight: 600;
+      letter-spacing: .3px;
+    }
+    .msg.error   { color: #e05454; }
+    .msg.success { color: #4caf50; }
+    .msg.info    { color: #555; }
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .btn-quit {
+      background: none;
+      border: none;
+      color: #333;
+      font-size: 10px;
+      cursor: pointer;
+      letter-spacing: .5px;
+      text-transform: uppercase;
+      transition: color .1s;
+    }
+    .btn-quit:hover { color: #e05454; }
+    .spinner {
+      display: none;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+      flex-shrink: 0;
+    }
+    .spinner.show { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="card">
+
+    <div class="logo">
+      <div class="logo-text">KX</div>
+      <div class="logo-sub">Sign in to continue</div>
+    </div>
+
+    <div class="field">
+      <label for="username">Username</label>
+      <input id="username" type="text" placeholder="Enter username" autocomplete="off" spellcheck="false"/>
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" type="password" placeholder="Enter password"/>
+    </div>
+
+    <div class="msg info" id="msg">Enter your credentials to access KX.</div>
+
+    <button class="btn-login" id="btn-login">
+      <span id="btn-text">SIGN IN</span>
+      <span class="spinner" id="spinner"></span>
+    </button>
+
+    <div class="footer">
+      <button class="btn-quit" id="btn-quit">Quit</button>
+      <span style="font-size:9px;color:#222;">KX v1.0</span>
+    </div>
+
+  </div>
+
+  <script>
+    const usernameEl = document.getElementById("username");
+    const passwordEl = document.getElementById("password");
+    const btn        = document.getElementById("btn-login");
+    const btnText    = document.getElementById("btn-text");
+    const spinnerEl  = document.getElementById("spinner");
+    const msg        = document.getElementById("msg");
+
+    // Allow Enter key in either field
+    [usernameEl, passwordEl].forEach(el => {
+      el.addEventListener("keydown", e => { if (e.key === "Enter") btn.click(); });
+    });
+
+    btn.addEventListener("click", async () => {
+      const username = usernameEl.value.trim();
+      const password = passwordEl.value;
+
+      if (!username) {
+        setMsg("Please enter your username.", "error");
+        usernameEl.focus();
+        return;
+      }
+      if (!password) {
+        setMsg("Please enter your password.", "error");
+        passwordEl.focus();
+        return;
+      }
+
+      setLoading(true);
+      setMsg("Signing in...", "info");
+
+      const result = await window.auth.submit(username, password);
+
+      setLoading(false);
+
+      if (result.ok) {
+        setMsg("Success! Loading KX...", "success");
+        btn.disabled = true;
+      } else {
+        setMsg(result.message || "Invalid credentials.", "error");
+        passwordEl.value = "";
+        passwordEl.focus();
+      }
+    });
+
+    document.getElementById("btn-quit").addEventListener("click", () => window.auth.quit());
+
+    function setLoading(on) {
+      btn.disabled = on;
+      btnText.style.display = on ? "none" : "inline";
+      spinnerEl.classList.toggle("show", on);
+    }
+
+    function setMsg(text, type) {
+      msg.textContent = text;
+      msg.className   = "msg " + type;
+    }
+
+    window.addEventListener("load", () => usernameEl.focus());
+  </script>
+</body>
+</html>

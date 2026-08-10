@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>KX</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+  <!-- ═══ TOOLBAR ══════════════════════════════════════════════════════════ -->
+  <header id="toolbar">
+    <div id="drag-zone">KX</div>
+    <div id="nav-row">
+      <button class="nb" id="btn-back"   title="Back">&#8249;</button>
+      <button class="nb" id="btn-fwd"    title="Forward">&#8250;</button>
+      <button class="nb" id="btn-reload" title="Reload">&#8635;</button>
+      <div id="url-wrap">
+        <span id="url-scheme">HTTPS</span>
+        <input id="url-bar" type="text" spellcheck="false" placeholder="Search or enter URL..."/>
+      </div>
+      <button id="btn-go">GO</button>
+    </div>
+    <div id="win-btns">
+      <!-- Chrome-style close: actually quits the app -->
+      <button class="wb-close" id="btn-close" title="Close KX">&#x2715;</button>
+    </div>
+  </header>
+
+  <!-- ═══ TAB BAR ══════════════════════════════════════════════════════════ -->
+  <div id="tab-bar">
+    <div id="tab-list"><!-- tabs injected by JS --></div>
+    <button id="btn-new-tab" title="New tab">+</button>
+  </div>
+
+  <!-- ═══ BODY ══════════════════════════════════════════════════════════════ -->
+  <div id="body">
+
+    <!-- Page -->
+    <div id="page-area">
+      <div id="wv-host"></div>
+      <div id="spinner"><div class="spin"></div></div>
+    </div>
+
+    <!-- ═══ SIDEBAR ═══════════════════════════════════════════════════════ -->
+    <aside id="sidebar">
+
+      <!-- TYPER -->
+      <div class="section-label">TYPER</div>
+      <button class="sb green"  id="sb-insert" title="Insert one char  Alt+,">INSERT</button>
+      <button class="sb green"  id="sb-start"  title="Start auto-type (stays visible)" disabled>START</button>
+      <button class="sb yellow" id="sb-pause"  title="Pause typing" disabled>PAUSE</button>
+      <button class="sb red"    id="sb-reset"  title="Reset + clear clipboard">RESET</button>
+      <button class="sb blue"   id="sb-load"   title="Load clipboard text">LOAD</button>
+
+      <div id="prog-wrap"><div id="prog-bar"></div></div>
+      <div id="prog-label">No text loaded</div>
+
+      <div class="section-label">SPEED</div>
+      <div class="slider-row">
+        <span class="sl-tag">LOW</span>
+        <input type="range" id="speed-slider" min="10" max="400" value="80"/>
+        <span class="sl-tag">HIGH</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- KEYBOARD MODE -->
+      <div class="section-label">KEYBOARD</div>
+      <button class="sb kb-btn" id="sb-kb" title="Toggle: type inside or outside KX">OUTSIDE</button>
+
+      <div class="divider"></div>
+
+      <!-- OPACITY -->
+      <div class="section-label">OPACITY</div>
+      <div class="slider-row">
+        <span class="sl-tag">10%</span>
+        <input type="range" id="opacity-slider" min="0.1" max="1" step="0.05" value="1"/>
+        <span class="sl-tag">100%</span>
+      </div>
+      <div id="opacity-label">100%</div>
+
+      <div class="divider"></div>
+
+      <!-- CAPTURE -->
+      <div class="section-label">CAPTURE</div>
+      <button class="sb"       id="sb-shot"   title="Screenshot → copies to clipboard  Alt+B">SCREENSHOT</button>
+      <button class="sb"       id="sb-sscrop" title="Screenshot KX area only">SSCROP</button>
+      <button class="sb cyan"  id="sb-ocr"    title="OCR screen  Alt+X">OCR</button>
+      <button class="sb blue"  id="sb-paste"  title="Paste clipboard (image or text) into browser">PASTE</button>
+
+      <div class="divider"></div>
+
+      <!-- CURSOR -->
+      <div class="section-label">CURSOR</div>
+      <button class="sb" id="sb-cursor">HIDE CURSOR</button>
+
+      <div class="divider"></div>
+
+      <!-- SHOW/HIDE -->
+      <button class="sb yellow" id="sb-toggle" title="Show/Hide KX  Alt+M">SHOW/HIDE</button>
+
+    </aside>
+  </div>
+
+  <!-- ═══ OCR PANEL ════════════════════════════════════════════════════════ -->
+  <div id="ocr-panel" class="panel-off">
+    <div class="panel-hdr">
+      <span>OCR RESULT</span>
+      <div class="panel-hdr-btns">
+        <button id="ocr-copy">COPY ALL</button>
+        <button id="ocr-queue">+ QUEUE</button>
+        <button id="ocr-close">X</button>
+      </div>
+    </div>
+    <div id="ocr-status"></div>
+    <textarea id="ocr-text" readonly></textarea>
+  </div>
+
+  <!-- ═══ QUEUE PANEL ═══════════════════════════════════════════════════════ -->
+  <div id="queue-panel" class="panel-off">
+    <div class="panel-hdr">
+      <span>TASK QUEUE</span>
+      <div class="panel-hdr-btns">
+        <button id="q-clear">CLEAR ALL</button>
+        <button id="q-close">X</button>
+      </div>
+    </div>
+    <div id="q-list"></div>
+  </div>
+
+  <!-- ═══ TOAST ════════════════════════════════════════════════════════════ -->
+  <div id="toast" class="off"></div>
+
+  <script src="src/renderer.js"></script>
+</body>
+</html>

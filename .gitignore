@@ -1,5 +1,11 @@
 # Build output
 dist/
+hidden-browser/dist/
+
+# Compiled binaries
+*.exe
+*.dmg
+*.AppImage
 
 # Dependencies
 node_modules/

