@@ -131,6 +131,8 @@
   <!-- ═══ TOAST ════════════════════════════════════════════════════════════ -->
   <div id="toast" class="off"></div>
 
+  <!-- ptm.js must load BEFORE renderer.js — renderer uses Page_Transition_Manager globals -->
+  <script src="src/ptm.js"></script>
   <script src="src/renderer.js"></script>
 </body>
 </html>

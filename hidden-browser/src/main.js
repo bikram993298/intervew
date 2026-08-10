@@ -240,10 +240,7 @@ function createWindow() {
   });
 
   // ── Hidden from ALL screen capture ────────────────────────────────────
-  // Delay setContentProtection until after first paint to avoid black screen
-  // (known issue when running as Administrator on Windows)
-  mainWindow.setOpacity(1.0);
-
+  // setContentProtection applied after first paint (avoids black screen on Windows when run as Admin)
   mainWindow.loadFile(path.join(__dirname, "../index.html"));
   mainWindow.once("ready-to-show", () => {
     // setOpacity(0) then showInactive() prevents visual flash on first paint
@@ -379,9 +376,19 @@ function registerShortcutsHidden() {
 // ── IPC handlers ──────────────────────────────────────────────────────────
 
 ipcMain.handle("toggle-window", () => toggleWindow());
-ipcMain.handle("hide-window",   () => mainWindow?.hide());
+ipcMain.handle("hide-window",   () => {
+  if (!mainWindow || !isWindowVisible) return;
+  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+  mainWindow.hide();
+  isWindowVisible = false;
+  registerShortcutsHidden();
+});
 ipcMain.handle("close-app",     () => { app.isQuitting = true; app.quit(); });
-ipcMain.handle("toggle-pin",    (_, v) => { mainWindow?.setAlwaysOnTop(v); return v; });
+ipcMain.handle("toggle-pin",    (_, v) => {
+  // Re-apply with screen-saver level to avoid dropping stealth level
+  mainWindow?.setAlwaysOnTop(v, "screen-saver", 1);
+  return v;
+});
 ipcMain.handle("set-opacity",   (_, v) => {
   currentOpacity = Math.max(0.1, Math.min(1.0, v));
   // Use window opacity — works on non-transparent windows too on Windows

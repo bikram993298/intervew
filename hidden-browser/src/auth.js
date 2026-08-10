@@ -35,14 +35,6 @@ function decryptData(raw) {
   } catch { return null; }
 }
 
-function loadSavedSession() {
-  try {
-    const f = getAuthFile();
-    if (!fs.existsSync(f)) return null;
-    return decryptData(fs.readFileSync(f, "utf8"));
-  } catch { return null; }
-}
-
 function saveSession(data) {
   fs.writeFileSync(getAuthFile(), encryptData(data));
 }
@@ -106,12 +98,6 @@ function postJson(url, body) {
 async function validateWithServer(username, password) {
   const deviceId = getDeviceId();
   return postJson(`${SERVER_URL}/login`, { username, password, deviceId });
-}
-
-// ── Re-validate saved token with server ──────────────────────────────────
-async function revalidateToken(token) {
-  const deviceId = getDeviceId();
-  return postJson(`${SERVER_URL}/revalidate`, { token, deviceId });
 }
 
 // ── Login window ──────────────────────────────────────────────────────────
